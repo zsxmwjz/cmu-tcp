@@ -30,3 +30,6 @@ test:
 clean:
 	rm -f $(BUILD_DIR)/*.o peer client server
 	rm -f tests/testing_server
+
+gen_graph:
+	sudo -E python3 gen_graph.py

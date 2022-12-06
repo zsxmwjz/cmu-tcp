@@ -60,7 +60,7 @@ def test_pcap_acks():
             elif pkt[CMUTCP].flags == ACK_MASK:
                 ack_nums.append(pkt[CMUTCP].ack_num)
 
-    # Probably not the best way to do this test!
+    # TODO: Probably not the best way to do this test!
     if set(expected_acks) == set(ack_nums):
         print("Test Passed")
     else:

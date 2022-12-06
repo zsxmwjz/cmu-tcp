@@ -10,3 +10,5 @@ project-2_15-441/tests/testing_server
 **/handin.tar.gz
 **/*.pcap
 !**/test.pcap
+.vscode
+.DS_Store

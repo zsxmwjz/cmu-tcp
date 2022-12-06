@@ -60,6 +60,7 @@ void handle_message(cmu_socket_t *sock, uint8_t *pkt) {
   cmu_tcp_header_t *hdr = (cmu_tcp_header_t *)pkt;
   uint8_t flags = get_flags(hdr);
 
+  // 捎带：TCP中，一个报文在附带有效载荷（传输数据）的同时作为ACK。即使是单纯的ACK，也要设置seq。
   switch (flags) {
     case ACK_FLAG_MASK: {
       uint32_t ack = get_ack(hdr);

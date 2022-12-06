@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 # Change this to be your pcap file
 # You can capture a pcap file with wireshark or tcpdump
 # https://support.rackspace.com/how-to/capturing-packets-with-tcpdump/
-FILE_TO_READ = "capture.pcap"
+FILE_TO_READ = "cap.pcap"
 
 packets = rdpcap(FILE_TO_READ)
 packet_list = []
