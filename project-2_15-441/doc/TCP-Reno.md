@@ -35,7 +35,7 @@
 2. **指数加权移动平均**：每次获取新的SampleRTT后，设置 $EstimatedRTT = (1 - \alpha) \times EstimatedRTT + \alpha \times SampleRTT$，推荐值 $\alpha = 0.125$。
 3. RTT偏差**DevRTT**：$DevRTT = (1 - \beta) \times DevRTT + \beta \times \vert SampleRTT - EstimatedRTT \vert$，推荐值 $\beta = 0.25$。
 4. 重传超时间隔**TimeoutInterval**：初始值1s。
-- 收到上层应用数据或收到ACK后，$TimeoutInterval = EstimatedRTT + 4 \times DevRTT$。
+- 收到上层应用数据或收到ACK后，$TimeoutInterval = \mu \times EstimatedRTT + \sigma \times DevRTT$，推荐值 $\mu = 1, \sigma = 4$。
 - 超时后，加倍。
 - 应该可以不作为全局变量，而是放在函数内计算。
 5. 快速重传：连续收到3个冗余ACK，视为之后的报文全部NAK，在超时之前触发重传。
