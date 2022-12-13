@@ -51,7 +51,8 @@ int cmu_socket(cmu_socket_t *sock, const cmu_socket_type_t socket_type,
   // FIXME: Sequence numbers should be randomly initialized. The next expected
   // sequence number should be initialized according to the SYN packet from the
   // other side of the connection.
-  sock->window.last_ack_received = 0;
+  srand(time(0));
+  sock->window.last_ack_received = rand();
   sock->window.next_seq_expected = 0;
   pthread_mutex_init(&(sock->window.ack_lock), NULL);
 
