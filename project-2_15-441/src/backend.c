@@ -29,6 +29,7 @@
 #include "cmu_tcp.h"
 
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
+#define RTO 1000
 
 /**
  * Tells if a given sequence number has been acknowledged by the socket.
@@ -143,7 +144,7 @@ void check_for_data(cmu_socket_t *sock, cmu_read_mode_t flags) {
       ack_fd.fd = sock->socket;
       ack_fd.events = POLLIN;
       // Timeout after 3 seconds.
-      if (poll(&ack_fd, 1, 3000) <= 0) {
+      if (poll(&ack_fd, 1, RTO) <= 0) {
         break;
       }
     }
