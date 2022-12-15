@@ -245,7 +245,8 @@ void handle_message(cmu_socket_t *sock, uint8_t *pkt) {
     }
     default: {
       if((sock->type == TCP_INITIATOR && state == ESTABLISHED)
-        || (sock->type == TCP_LISTENER && state == ESTABLISHED)) {
+        || (sock->type == TCP_LISTENER && state == ESTABLISHED)
+        || state == FIN_WAIT_2) {
         send_ack(sock,pkt,0);
 
         uint32_t seq = get_seq(hdr);
@@ -256,10 +257,12 @@ void handle_message(cmu_socket_t *sock, uint8_t *pkt) {
           uint8_t *payload = get_payload(pkt);
 
           // Make sure there is enough space in the buffer to store the payload.
-          sock->received_buf =
-              realloc(sock->received_buf, sock->received_len + payload_len);
-          memcpy(sock->received_buf + sock->received_len, payload, payload_len);
-          sock->received_len += payload_len;
+          if(state != FIN_WAIT_2) {
+            sock->received_buf =
+                realloc(sock->received_buf, sock->received_len + payload_len);
+            memcpy(sock->received_buf + sock->received_len, payload, payload_len);
+            sock->received_len += payload_len;
+          }
         }
       }
     }
@@ -427,11 +430,13 @@ void wavehand(cmu_socket_t *sock) {
   }
   if(num_received_fin == 0 || should_wait) {
     state = FIN_WAIT_2;
-    check_for_data(sock,NO_FLAG); // 等待对方的FIN报文到达
+    while(num_received_fin == 0) {
+      check_for_data(sock,NO_FLAG); // 等待对方的FIN报文到达
+    }
     state = TIME_WAIT;
     do {
       RTO = 30000; // 30s内没收到重发的FIN报文，认为对方已收到FINACK
-    } while(num_received_fin == 0 || check_for_data(sock,TIMEOUT));
+    } while(check_for_data(sock,TIMEOUT));
   }
   state = CLOSED;
 }
