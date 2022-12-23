@@ -441,6 +441,103 @@ void wavehand(cmu_socket_t *sock) {
   state = CLOSED;
 }
 
+/**
+ * Breaks up the data into packets and sends two packets at a time.
+ *
+ * You should most certainly update this function in your implementation.
+ *
+ * @param sock The socket to use for sending data.
+ * @param data The data to be sent.
+ * @param buf_len The length of the data being sent.
+ */
+void window_send(cmu_socket_t *sock, uint8_t *data, int buf_len) {
+  uint8_t *msg[WINDOW_SIZE];
+  uint8_t *data_offset = data;
+  size_t conn_len = sizeof(sock->conn);
+
+  int received[WINDOW_SIZE];
+  for(int i=0;i<WINDOW_SIZE;i++){
+    received[i]=0;
+  }
+
+  int current_num=0;
+  int end=0;
+
+  int sockfd = sock->socket;
+
+  if (buf_len > 0) {
+    while (end==0) {
+      uint16_t payload_len = MIN((uint16_t)buf_len, (uint16_t)MSS);
+
+      uint16_t src = sock->my_port;
+      uint16_t dst = ntohs(sock->conn.sin_port);
+      uint32_t seq[WINDOW_SIZE];
+      seq[0] = sock->window.last_ack_received;
+      uint32_t ack[WINDOW_SIZE];
+      ack[0] = sock->window.next_seq_expected;
+      uint16_t hlen = sizeof(cmu_tcp_header_t);
+      uint16_t plen = hlen + payload_len;
+      uint8_t flags = 0;
+      uint16_t adv_window = 1;
+      uint16_t ext_len = 0;
+      uint8_t *ext_data = NULL;
+      uint8_t *payload = data_offset;
+      
+      int i=current_num;
+      do{
+        if(received[i % WINDOW_SIZE]==1 && buf_len !=0){
+          msg[i] = create_packet(src, dst, seq[i-current_num], ack[i-current_num], hlen, plen, flags, adv_window,
+                                ext_len, ext_data, payload, payload_len);
+          buf_len -= payload_len;
+          payload_len = MIN((uint16_t)buf_len, (uint16_t)MSS);
+          plen = hlen + payload_len;
+          if(i-current_num+1<WINDOW_SIZE){
+            seq[i-current_num+1]=seq[i-current_num]+payload_len;
+            ack[i-current_num+1]=ack[i-current_num]+payload_len;
+          }
+          received[i % WINDOW_SIZE]=0;
+        }
+        else{
+          break;
+        }
+        i++;
+      }while(i % WINDOW_SIZE !=current_num);
+      
+      i=current_num;
+      do{
+        if(received[i % WINDOW_SIZE]==1)break;
+        sendto(sockfd, msg[i % WINDOW_SIZE], plen, 0, (struct sockaddr *)&(sock->conn),
+              conn_len);
+        i++;
+      }while(i % WINDOW_SIZE !=current_num);
+
+      i=current_num;
+      do{
+        check_for_data(sock, TIMEOUT);
+        if (has_been_acked(sock, seq[i-current_num])) {
+          data_offset += payload_len;
+          received[i % WINDOW_SIZE]=1;
+        }
+        else{
+          current_num=i;
+          break;
+        }
+        i++;
+      }while(i % WINDOW_SIZE !=current_num);
+
+      if(buf_len==0){
+        end=1;
+        for(i=0;i<WINDOW_SIZE;i++){
+          if(received[i]==0){
+            end=0;
+          }
+        }
+      }
+
+    }
+  }
+}
+
 void *begin_backend(void *in) {
   cmu_socket_t *sock = (cmu_socket_t *)in;
   int death, buf_len, send_signal;
@@ -469,7 +566,8 @@ void *begin_backend(void *in) {
       free(sock->sending_buf);
       sock->sending_buf = NULL;
       pthread_mutex_unlock(&(sock->send_lock));
-      single_send(sock, data, buf_len);
+      //single_send(sock, data, buf_len);
+      window_send(sock, data, buf_len);
       free(data);
     } else {
       pthread_mutex_unlock(&(sock->send_lock));

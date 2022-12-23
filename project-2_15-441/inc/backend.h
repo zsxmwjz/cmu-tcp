@@ -23,4 +23,6 @@
  */
 void* begin_backend(void* in);
 
+#define WINDOW_SIZE 2
+
 #endif  // PROJECT_2_15_441_INC_BACKEND_H_
