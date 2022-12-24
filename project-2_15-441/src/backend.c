@@ -455,26 +455,27 @@ void window_send(cmu_socket_t *sock, uint8_t *data, int buf_len) {
   uint8_t *data_offset = data;
   size_t conn_len = sizeof(sock->conn);
 
+  int created[WINDOW_SIZE];
   int received[WINDOW_SIZE];
   for(int i=0;i<WINDOW_SIZE;i++){
-    received[i]=0;
+    created[i]=0;
+    received[i]=1;
   }
 
   int current_num=0;
   int end=0;
 
   int sockfd = sock->socket;
-
+  uint32_t seq[WINDOW_SIZE];
+  seq[0] = sock->window.last_ack_received;
+  uint32_t ack = sock->window.next_seq_expected;
   if (buf_len > 0) {
     while (end==0) {
       uint16_t payload_len = MIN((uint16_t)buf_len, (uint16_t)MSS);
 
       uint16_t src = sock->my_port;
       uint16_t dst = ntohs(sock->conn.sin_port);
-      uint32_t seq[WINDOW_SIZE];
-      seq[0] = sock->window.last_ack_received;
-      uint32_t ack[WINDOW_SIZE];
-      ack[0] = sock->window.next_seq_expected;
+
       uint16_t hlen = sizeof(cmu_tcp_header_t);
       uint16_t plen = hlen + payload_len;
       uint8_t flags = 0;
@@ -483,52 +484,44 @@ void window_send(cmu_socket_t *sock, uint8_t *data, int buf_len) {
       uint8_t *ext_data = NULL;
       uint8_t *payload = data_offset;
       
-      int i=current_num;
-      do{
-        if(received[i % WINDOW_SIZE]==1 && buf_len !=0){
-          msg[i] = create_packet(src, dst, seq[i-current_num], ack[i-current_num], hlen, plen, flags, adv_window,
-                                ext_len, ext_data, payload, payload_len);
-          buf_len -= payload_len;
-          payload_len = MIN((uint16_t)buf_len, (uint16_t)MSS);
-          plen = hlen + payload_len;
-          if(i-current_num+1<WINDOW_SIZE){
-            seq[i-current_num+1]=seq[i-current_num]+payload_len;
-            ack[i-current_num+1]=ack[i-current_num]+payload_len;
-          }
-          received[i % WINDOW_SIZE]=0;
-        }
-        else{
-          break;
-        }
-        i++;
-      }while(i % WINDOW_SIZE !=current_num);
-      
-      i=current_num;
-      do{
-        if(received[i % WINDOW_SIZE]==1)break;
-        sendto(sockfd, msg[i % WINDOW_SIZE], plen, 0, (struct sockaddr *)&(sock->conn),
-              conn_len);
-        i++;
-      }while(i % WINDOW_SIZE !=current_num);
+      if(current_num!=0){
+        seq[current_num%WINDOW_SIZE] = seq[(current_num-1)%WINDOW_SIZE]+payload_len;
+      }
+      ack=seq[current_num%WINDOW_SIZE]+payload_len;
 
-      i=current_num;
-      do{
+      if(created[(current_num-1)%WINDOW_SIZE]==0&&buf_len==0){
+        msg[current_num%WINDOW_SIZE] = create_packet(src, dst, seq[current_num%WINDOW_SIZE], ack, hlen, plen, flags, adv_window,
+                                                    ext_len, ext_data, payload, payload_len);
+        buf_len -= payload_len;
+        data_offset += payload_len;
+        
+      }
+
+      sendto(sockfd, msg[current_num % WINDOW_SIZE], plen, 0, (struct sockaddr *)&(sock->conn),
+            conn_len);
+      received[current_num%WINDOW_SIZE]=0;
+
+      if(created[(current_num+1)%WINDOW_SIZE]==1&&received[(current_num+1)%WINDOW_SIZE]==0){
         check_for_data(sock, TIMEOUT);
-        if (has_been_acked(sock, seq[i-current_num])) {
-          data_offset += payload_len;
-          received[i % WINDOW_SIZE]=1;
+        if (has_been_acked(sock, seq[(current_num+1)%WINDOW_SIZE])) {
+          created[(current_num+1)%WINDOW_SIZE]=0;
+          received[(current_num+1)%WINDOW_SIZE]=1;
+          current_num++;
         }
         else{
-          current_num=i;
-          break;
+          for(int i=0;i<WINDOW_SIZE;i++){
+            created[i]=0;
+            received[i]=0;
+          }
+          current_num++;
+          continue;
         }
-        i++;
-      }while(i % WINDOW_SIZE !=current_num);
+      }
 
       if(buf_len==0){
         end=1;
-        for(i=0;i<WINDOW_SIZE;i++){
-          if(received[i]==0){
+        for(int i=0;i<WINDOW_SIZE;i++){
+          if(created[i]==0){
             end=0;
           }
         }
