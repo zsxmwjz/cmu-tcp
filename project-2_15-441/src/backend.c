@@ -451,23 +451,28 @@ void wavehand(cmu_socket_t *sock) {
  * @param buf_len The length of the data being sent.
  */
 void window_send(cmu_socket_t *sock, uint8_t *data, int buf_len) {
+  const int WINDOW_SIZE=WINDOW_INITIAL_WINDOW_SIZE/MSS;
+
   uint8_t *msg[WINDOW_SIZE];
   uint8_t *data_offset = data;
   size_t conn_len = sizeof(sock->conn);
 
   int created[WINDOW_SIZE];
   int sended[WINDOW_SIZE];
+  uint32_t seq[WINDOW_SIZE];
   for(int i=0;i<WINDOW_SIZE;i++){
     created[i]=0;
     sended[i]=0;
+    seq[i] = sock->window.last_ack_received;
   }
 
   int current_num=0;
   int end=0;
 
   int sockfd = sock->socket;
-  uint32_t seq[WINDOW_SIZE];
-  seq[0] = sock->window.last_ack_received;
+
+  uint16_t last_payload_len = 0;
+
   if (buf_len > 0) {
     while (end==0) {
       uint16_t payload_len = MIN((uint16_t)buf_len, (uint16_t)MSS);
@@ -475,7 +480,6 @@ void window_send(cmu_socket_t *sock, uint8_t *data, int buf_len) {
       uint16_t src = sock->my_port;
       uint16_t dst = ntohs(sock->conn.sin_port);
 
-      
       uint16_t hlen = sizeof(cmu_tcp_header_t);
       uint16_t plen = hlen + payload_len;
       uint8_t flags = 0;
@@ -484,8 +488,8 @@ void window_send(cmu_socket_t *sock, uint8_t *data, int buf_len) {
       uint8_t *ext_data = NULL;
       uint8_t *payload = data_offset;
       uint32_t ack = seq[current_num%WINDOW_SIZE]+payload_len;
-      if(current_num!=0&&created[current_num%WINDOW_SIZE]==0){
-        seq[current_num%WINDOW_SIZE] = seq[(current_num-1)%WINDOW_SIZE]+payload_len;
+      if(created[current_num%WINDOW_SIZE]==0&&current_num!=0){
+        seq[current_num%WINDOW_SIZE] = seq[(current_num-1)%WINDOW_SIZE]+last_payload_len;
       }
 
       if(created[current_num%WINDOW_SIZE]==0&&buf_len!=0){
@@ -495,6 +499,7 @@ void window_send(cmu_socket_t *sock, uint8_t *data, int buf_len) {
         buf_len -= payload_len;
         data_offset += payload_len;
         created[current_num%WINDOW_SIZE]=1;
+        last_payload_len=payload_len;
         //printf("newpkt:%d\n",current_num);
       }
       
