@@ -48,6 +48,13 @@ void functionality(cmu_socket_t *sock) {
   }
 }
 
+void test_sendArray(cmu_socket_t *sock) {
+  int arr[100000];
+  for(int i = 0; i < 100000; i++) arr[i] = i;
+  cmu_write(sock, arr, 100000 * sizeof(int));
+  printf("send 0 - 99999\n");
+}
+
 int main() {
   int portno;
   char *serverip;
@@ -69,7 +76,8 @@ int main() {
     exit(EXIT_FAILURE);
   }
 
-  functionality(&socket);
+  // functionality(&socket);
+  test_sendArray(&socket);
 
   if (cmu_close(&socket) < 0) {
     exit(EXIT_FAILURE);
