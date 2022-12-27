@@ -60,10 +60,9 @@ int has_been_acked(cmu_socket_t *sock, uint32_t seq) {
  * Send ACK packet of pkt.
  * 
  * @param sock The socket used for sending ack.
- * @param pkt The pkt which will be acked.
- * @param flag SYNC, ACK, FIN or 0
+ * @param flag SYNC, FIN or 0
  */
-void send_ack(cmu_socket_t *sock, uint8_t *pkt, uint8_t flag) {
+void send_ack(cmu_socket_t *sock, uint8_t flag) {
   socklen_t conn_len = sizeof(sock->conn);
   uint32_t seq = sock->window.last_ack_received;
 
@@ -77,8 +76,7 @@ void send_ack(cmu_socket_t *sock, uint8_t *pkt, uint8_t flag) {
 
   uint16_t src = sock->my_port;
   uint16_t dst = ntohs(sock->conn.sin_port);
-  uint32_t ack = get_seq((cmu_tcp_header_t*)pkt) + get_payload_len(pkt);
-  if(flag == SYN_FLAG_MASK || flag == ACK_FLAG_MASK || flag == FIN_FLAG_MASK) ack++;
+  uint32_t ack = sock->window.next_seq_expected;
   uint16_t hlen = sizeof(cmu_tcp_header_t);
   uint16_t plen = hlen + payload_len;
   uint8_t flags = ACK_FLAG_MASK | flag;
@@ -149,13 +147,13 @@ void send_fin(cmu_socket_t *sock) {
   uint16_t plen = hlen + payload_len;
   uint8_t flags = FIN_FLAG_MASK;
   uint16_t adv_window = 1;
-  uint8_t *syn_packet =
+  uint8_t *fin_packet =
       create_packet(src, dst, seq, ack, hlen, plen, flags, adv_window,
                     ext_len, ext_data, payload, payload_len);
 
-  sendto(sock->socket, syn_packet, plen, 0,
+  sendto(sock->socket, fin_packet, plen, 0,
           (struct sockaddr *)&(sock->conn), conn_len);
-  free(syn_packet);
+  free(fin_packet);
 }
 
 uint32_t check_for_data(cmu_socket_t *sock, cmu_read_mode_t flags);
@@ -179,7 +177,7 @@ void handle_message(cmu_socket_t *sock, uint8_t *pkt) {
         sock->window.next_seq_expected = get_seq(hdr) + 1;
         while(1){
           uint32_t synack_seq = sock->window.last_ack_received;
-          send_ack(sock,pkt,SYN_FLAG_MASK);
+          send_ack(sock, SYN_FLAG_MASK);
           pthread_mutex_unlock(&(sock->recv_lock));
           check_for_data(sock,TIMEOUT); // 等待对SYNACK报文的确认
           if(has_been_acked(sock,synack_seq)) {
@@ -195,7 +193,7 @@ void handle_message(cmu_socket_t *sock, uint8_t *pkt) {
         if(ack == sock->window.last_ack_received + 1 && get_payload_len(pkt) == 0) {
           sock->window.last_ack_received = ack;
           sock->window.next_seq_expected = get_seq(hdr) + 1;
-          send_ack(sock,pkt,ACK_FLAG_MASK);
+          send_ack(sock,0);
         }
         state = ESTABLISHED;
       }
@@ -221,15 +219,20 @@ void handle_message(cmu_socket_t *sock, uint8_t *pkt) {
     case FIN_FLAG_MASK: {
       if(state == ESTABLISHED || state == LAST_ACK || state == FIN_WAIT_1
         || state == FIN_WAIT_2 || state == TIME_WAIT) {
-        send_ack(sock,pkt,FIN_FLAG_MASK);
-        num_received_fin++;
-        if(state == ESTABLISHED) {
-          state = CLOSE_WAIT;
-          while(pthread_mutex_lock(&sock->death_lock)) {
-          }
-          sock->dying = 1;
-          pthread_mutex_unlock(&sock->death_lock);
-        }
+          if(get_seq(hdr) == sock->window.next_seq_expected) {
+            sock->window.next_seq_expected++;
+            send_ack(sock,FIN_FLAG_MASK);
+            num_received_fin++;
+            if(state == ESTABLISHED) {
+              state = CLOSE_WAIT;
+              while(pthread_mutex_lock(&sock->death_lock)) {
+              }
+              sock->dying = 1;
+              pthread_mutex_unlock(&sock->death_lock);
+            }
+          } else if(get_seq(hdr) < sock->window.next_seq_expected) {
+            send_ack(sock,FIN_FLAG_MASK);
+          } else send_ack(sock,0);
       }
       break;
     }
@@ -238,7 +241,6 @@ void handle_message(cmu_socket_t *sock, uint8_t *pkt) {
         uint32_t ack = get_ack(hdr);
         if(ack == sock->window.last_ack_received + 1 && get_payload_len(pkt) == 0) {
           sock->window.last_ack_received = ack;
-          sock->window.next_seq_expected = get_seq(hdr) + 1;
         }
       }
       break;
@@ -246,7 +248,6 @@ void handle_message(cmu_socket_t *sock, uint8_t *pkt) {
     default: {
       if((sock->type == TCP_INITIATOR && state == ESTABLISHED)
         || (sock->type == TCP_LISTENER && state == ESTABLISHED)) {
-        send_ack(sock,pkt,0);
 
         uint32_t seq = get_seq(hdr);
 
@@ -261,6 +262,8 @@ void handle_message(cmu_socket_t *sock, uint8_t *pkt) {
           memcpy(sock->received_buf + sock->received_len, payload, payload_len);
           sock->received_len += payload_len;
         }
+
+        send_ack(sock,0);
       }
     }
   }
@@ -430,7 +433,7 @@ void wavehand(cmu_socket_t *sock) {
     check_for_data(sock,NO_FLAG); // 等待对方的FIN报文到达
     state = TIME_WAIT;
     do {
-      RTO = 30000; // 30s内没收到重发的FIN报文，认为对方已收到FINACK
+      RTO = 3000; // 30s内没收到重发的FIN报文，认为对方已收到FINACK
     } while(num_received_fin == 0 || check_for_data(sock,TIMEOUT));
   }
   state = CLOSED;
