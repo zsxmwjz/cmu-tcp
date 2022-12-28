@@ -372,6 +372,7 @@ void single_send(cmu_socket_t *sock, uint8_t *data, int buf_len) {
                conn_len);
         check_for_data(sock, TIMEOUT);
         if (has_been_acked(sock, seq)) {
+          free(msg);
           break;
         }
       }
@@ -491,6 +492,8 @@ void window_send(cmu_socket_t *sock, uint8_t *data, int buf_len) {
       uint8_t *ext_data = NULL;
       uint8_t *payload = data_offset;
       uint32_t ack = seq[current_num%WINDOW_SIZE]+payload_len;
+
+      int ack_wrong=0;
       if(created[current_num%WINDOW_SIZE]==0&&current_num!=0){
         seq[current_num%WINDOW_SIZE] = seq[(current_num-1)%WINDOW_SIZE]+last_payload_len;
       }
@@ -512,19 +515,24 @@ void window_send(cmu_socket_t *sock, uint8_t *data, int buf_len) {
         sended[current_num%WINDOW_SIZE]=1;
       }
 
-      if(created[(current_num+1)%WINDOW_SIZE]==1&&sended[(current_num+1)%WINDOW_SIZE]==1){
+      while(created[(current_num+1)%WINDOW_SIZE]==1&&sended[(current_num+1)%WINDOW_SIZE]==1){
         check_for_data(sock, TIMEOUT);
         if (has_been_acked(sock, seq[(current_num+1)%WINDOW_SIZE])) {
           created[(current_num+1)%WINDOW_SIZE]=0;
           sended[(current_num+1)%WINDOW_SIZE]=0;
+          free(msg[(current_num+1)%WINDOW_SIZE]);
           //printf("acked:%d\n",(current_num+1));
+          break;
         }
         else{
+          if(ack_wrong>=WINDOW_SIZE/3){
+            ack_wrong++;
+            continue;
+          }
           for(int i=0;i<WINDOW_SIZE;i++){
             sended[i]=0;
           }
-          current_num++;
-          continue;
+          break;
         }
       }
 
