@@ -49,10 +49,10 @@ void functionality(cmu_socket_t *sock) {
 }
 
 void test_sendArray(cmu_socket_t *sock) {
-  uint8_t arr[100000];
-  for(int i = 0; i < 100000; i++) arr[i] = i & 0xff;
-  cmu_write(sock, arr, 100000 * sizeof(uint8_t));
-  printf("send 0 - 99999\n");
+  uint8_t arr[MAX_NETWORK_BUFFER];
+  for(int i = 0; i < MAX_NETWORK_BUFFER; i++) arr[i] = i & 0xff;
+  cmu_write(sock, arr, MAX_NETWORK_BUFFER * sizeof(uint8_t));
+  printf("send 0 - %d\n",MAX_NETWORK_BUFFER-1);
 }
 
 int main() {
