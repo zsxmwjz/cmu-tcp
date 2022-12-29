@@ -51,19 +51,16 @@ void functionality(cmu_socket_t *sock) {
 }
 
 void test_sendArray(cmu_socket_t *sock) {
-  sleep(10);
-  int arr[100000] = {0};
-  int n = cmu_read(sock, arr, 100000 * sizeof(int), NO_FLAG);
+  sleep(3);
+  uint8_t arr[100000] = {0};
+  int n = cmu_read(sock, arr, 100000 * sizeof(uint8_t), NO_FLAG);
   printf("length: %d\n", n);
-  int index = 0;
-  for(int i = 0; i < 100000; i++) {
-    if(arr[i] != i) {
-      index = i;
-      break;
-    }
+  int index;
+  for(index = 0; index < 100000; index++) {
+    if(arr[index] != (index & 0xff)) break;
   }
-  if(index < 100000) printf("wrong at %d\n",index);
-  else if(index == 100000) printf("test_bigFile PASS\n");
+  if(index < 100000) printf("wrong at %d, expected %d, got %d\n",index,index&0xff,arr[index]);
+  else if(index == 100000) printf("test_sendArray PASS\n");
 }
 
 int main() {

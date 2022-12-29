@@ -534,7 +534,7 @@ void window_send(cmu_socket_t *sock, uint8_t *data, int buf_len) {
           break;
         }
         else{
-          if(ack_wrong>=WINDOW_SIZE/3){
+          if(ack_wrong<=WINDOW_SIZE/3){
             ack_wrong++;
             continue;
           }

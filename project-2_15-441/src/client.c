@@ -49,9 +49,9 @@ void functionality(cmu_socket_t *sock) {
 }
 
 void test_sendArray(cmu_socket_t *sock) {
-  int arr[100000];
-  for(int i = 0; i < 100000; i++) arr[i] = i;
-  cmu_write(sock, arr, 100000 * sizeof(int));
+  uint8_t arr[100000];
+  for(int i = 0; i < 100000; i++) arr[i] = i & 0xff;
+  cmu_write(sock, arr, 100000 * sizeof(uint8_t));
   printf("send 0 - 99999\n");
 }
 
