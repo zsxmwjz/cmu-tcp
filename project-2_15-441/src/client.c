@@ -51,8 +51,11 @@ void functionality(cmu_socket_t *sock) {
 void test_sendArray(cmu_socket_t *sock) {
   uint8_t arr[MAX_NETWORK_BUFFER];
   for(int i = 0; i < MAX_NETWORK_BUFFER; i++) arr[i] = i & 0xff;
-  cmu_write(sock, arr, MAX_NETWORK_BUFFER * sizeof(uint8_t));
-  printf("send 0 - %d\n",MAX_NETWORK_BUFFER-1);
+  int round = 10;
+  for(int i = 0; i < round; i++) {
+    cmu_write(sock, arr, MAX_NETWORK_BUFFER * sizeof(uint8_t));
+    printf("round %d: send 0 - %d\n",i,MAX_NETWORK_BUFFER-1);
+  }
 }
 
 int main() {

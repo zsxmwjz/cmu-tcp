@@ -56,7 +56,11 @@ int cmu_socket(cmu_socket_t *sock, const cmu_socket_type_t socket_type,
   sock->window.next_seq_expected = 0;
   pthread_mutex_init(&(sock->window.ack_lock), NULL);
 
-  if (pthread_cond_init(&sock->wait_cond, NULL) != 0) {
+  if (pthread_cond_init(&sock->wait_cond_read, NULL) != 0) {
+    perror("ERROR condition variable not set\n");
+    return EXIT_ERROR;
+  }
+  if (pthread_cond_init(&sock->wait_cond_write, NULL) != 0) {
     perror("ERROR condition variable not set\n");
     return EXIT_ERROR;
   }
@@ -147,7 +151,7 @@ int cmu_read(cmu_socket_t *sock, void *buf, int length, cmu_read_mode_t flags) {
   switch (flags) {
     case NO_FLAG:
       while (sock->received_len == 0) {
-        pthread_cond_wait(&(sock->wait_cond), &(sock->recv_lock));
+        pthread_cond_wait(&(sock->wait_cond_read), &(sock->recv_lock));
       }
     // Fall through.
     case NO_WAIT:
@@ -185,8 +189,15 @@ int cmu_write(cmu_socket_t *sock, const void *buf, int length) {
   }
   if (sock->sending_buf == NULL)
     sock->sending_buf = malloc(length);
-  else
+  else if(sock->sending_len + length <= MAX_NETWORK_BUFFER)
     sock->sending_buf = realloc(sock->sending_buf, length + sock->sending_len);
+  else while(1) { // 等待子线程将发送缓冲清空，防止缓冲过长
+    pthread_cond_wait(&(sock->wait_cond_write), &(sock->send_lock));
+    if(sock->sending_buf == NULL) {
+      sock->sending_buf = malloc(length);
+      break;
+    }
+  }
   memcpy(sock->sending_buf + sock->sending_len, buf, length);
   sock->sending_len += length;
 

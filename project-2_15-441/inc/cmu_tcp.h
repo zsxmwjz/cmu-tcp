@@ -53,7 +53,8 @@ typedef struct {
   uint8_t* received_buf;
   int received_len;
   pthread_mutex_t recv_lock;
-  pthread_cond_t wait_cond;
+  pthread_cond_t wait_cond_read;
+  pthread_cond_t wait_cond_write;
   uint8_t* sending_buf;
   int sending_len;
   cmu_socket_type_t type;

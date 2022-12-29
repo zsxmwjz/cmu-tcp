@@ -51,16 +51,22 @@ void functionality(cmu_socket_t *sock) {
 }
 
 void test_sendArray(cmu_socket_t *sock) {
-  sleep(3);
-  uint8_t arr[MAX_NETWORK_BUFFER] = {0};
-  int n = cmu_read(sock, arr, MAX_NETWORK_BUFFER * sizeof(uint8_t), NO_FLAG);
-  printf("length: %d\n", n);
-  int index;
-  for(index = 0; index < MAX_NETWORK_BUFFER; index++) {
-    if(arr[index] != (index & 0xff)) break;
+  int round = 10;
+  for(int i = 0; i < round; i++) {
+    sleep(3);
+    uint8_t arr[MAX_NETWORK_BUFFER] = {0};
+    int n = cmu_read(sock, arr, MAX_NETWORK_BUFFER * sizeof(uint8_t), NO_FLAG);
+    printf("length: %d\n", n);
+    int index;
+    for(index = 0; index < MAX_NETWORK_BUFFER; index++) {
+      if(arr[index] != (index & 0xff)) break;
+    }
+    if(index < MAX_NETWORK_BUFFER) {
+      printf("wrong at %d, expected %d, got %d\n",index,index&0xff,arr[index]);
+      return;
+    }
   }
-  if(index < MAX_NETWORK_BUFFER) printf("wrong at %d, expected %d, got %d\n",index,index&0xff,arr[index]);
-  else if(index == MAX_NETWORK_BUFFER) printf("test_sendArray PASS\n");
+  printf("test_sendArray PASS\n");
 }
 
 int main() {

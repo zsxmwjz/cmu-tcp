@@ -448,7 +448,7 @@ void wavehand(cmu_socket_t *sock) {
     }
     state = TIME_WAIT;
     do {
-      RTO = 30000; // 30s内没收到重发的FIN报文，认为对方已收到FINACK
+      RTO = 3000; // 30s内没收到重发的FIN报文，认为对方已收到FINACK
     } while(check_for_data(sock,TIMEOUT));
   }
   state = CLOSED;
@@ -590,6 +590,7 @@ void *begin_backend(void *in) {
       free(sock->sending_buf);
       sock->sending_buf = NULL;
       pthread_mutex_unlock(&(sock->send_lock));
+      pthread_cond_signal(&(sock->wait_cond_write));
       //single_send(sock, data, buf_len);
       window_send(sock, data, buf_len);
       free(data);
@@ -607,7 +608,7 @@ void *begin_backend(void *in) {
     pthread_mutex_unlock(&(sock->recv_lock));
 
     if (send_signal) {
-      pthread_cond_signal(&(sock->wait_cond));
+      pthread_cond_signal(&(sock->wait_cond_read));
     }
   }
 
