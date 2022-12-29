@@ -37,7 +37,9 @@ typedef enum {
 } state_t;
 
 state_t state = CLOSED;
-int RTO = WINDOW_INITIAL_RTT;
+int RTO = 1000;
+int EstimatedRTT=WINDOW_INITIAL_RTT;
+int DevRTT=0;
 int num_received_fin = 0;
 
 /**
@@ -300,21 +302,15 @@ uint32_t check_for_data(cmu_socket_t *sock, cmu_read_mode_t flags) {
       break;
     case TIMEOUT: {
       // Using `poll` here so that we can specify a timeout.
-      struct timeval start, end;
-      
       struct pollfd ack_fd;
       ack_fd.fd = sock->socket;
       ack_fd.events = POLLIN;
-      
-      gettimeofday( &start, NULL );
       // Timeout after 3 seconds.
-      if (poll(&ack_fd, 1, RTO) <= 0) {
-        RTO=2*RTO;
+      int i=poll(&ack_fd, 1, RTO);
+      if (i <= 0) {
+        if(i==0)RTO=2*RTO;
         break;
       }
-      gettimeofday( &end, NULL );
-      int timeuse = 1000 * ( end.tv_sec - start.tv_sec ) + (end.tv_usec - start.tv_usec)/1000;
-      RTO=0.875*RTO+0.125*timeuse;//RTT估计
     }
     // Fallthrough.
     case NO_WAIT:
@@ -455,7 +451,7 @@ void wavehand(cmu_socket_t *sock) {
 }
 
 /**
- * Breaks up the data into packets and sends two packets at a time.
+ * Breaks up the data into packets and sends packets in window.
  *
  * You should most certainly update this function in your implementation.
  *
@@ -465,6 +461,8 @@ void wavehand(cmu_socket_t *sock) {
  */
 void window_send(cmu_socket_t *sock, uint8_t *data, int buf_len) {
   const int WINDOW_SIZE=WINDOW_INITIAL_WINDOW_SIZE/MSS;
+
+  struct timeval start_time[WINDOW_SIZE], end_time;
 
   uint8_t *msg[WINDOW_SIZE];
   uint8_t *data_offset = data;
@@ -521,7 +519,8 @@ void window_send(cmu_socket_t *sock, uint8_t *data, int buf_len) {
       if(created[current_num%WINDOW_SIZE]==1){
         sendto(sockfd, msg[current_num % WINDOW_SIZE], plen, 0, (struct sockaddr *)&(sock->conn),
               conn_len);
-        sended[current_num%WINDOW_SIZE]=1;
+        sended[current_num%WINDOW_SIZE]=1;     
+        gettimeofday( &start_time[current_num%WINDOW_SIZE], NULL );
       }
 
       while(created[(current_num+1)%WINDOW_SIZE]==1&&sended[(current_num+1)%WINDOW_SIZE]==1){
@@ -531,6 +530,11 @@ void window_send(cmu_socket_t *sock, uint8_t *data, int buf_len) {
           sended[(current_num+1)%WINDOW_SIZE]=0;
           free(msg[(current_num+1)%WINDOW_SIZE]);
           //printf("acked:%d\n",(current_num+1));
+          gettimeofday( &end, NULL );
+          int timeuse = 1000 * ( end_time.tv_sec - start_time[(current_num+1)%WINDOW_SIZE].tv_sec ) + (end_time.tv_usec - start_time[(current_num+1)%WINDOW_SIZE].tv_usec)/1000;
+          EstimatedRTT=0.875*EstimatedRTT+0.125*timeuse;//RTT估计
+          DevRTT=0.75*DevRTT-0.25*MIN(EstimatedRTT-timeuse,timeuse-EstimatedRTT);
+          RTO=EstimatedRTT+4*DevRTT;
           break;
         }
         else{
