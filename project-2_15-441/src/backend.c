@@ -24,6 +24,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/time.h>
 
 #include "cmu_packet.h"
 #include "cmu_tcp.h"
@@ -36,7 +37,7 @@ typedef enum {
 } state_t;
 
 state_t state = CLOSED;
-int RTO = 1000;
+int RTO = WINDOW_INITIAL_RTT;
 int num_received_fin = 0;
 
 /**
@@ -299,13 +300,21 @@ uint32_t check_for_data(cmu_socket_t *sock, cmu_read_mode_t flags) {
       break;
     case TIMEOUT: {
       // Using `poll` here so that we can specify a timeout.
+      struct timeval start, end;
+      
       struct pollfd ack_fd;
       ack_fd.fd = sock->socket;
       ack_fd.events = POLLIN;
+      
+      gettimeofday( &start, NULL );
       // Timeout after 3 seconds.
       if (poll(&ack_fd, 1, RTO) <= 0) {
+        RTO=2*RTO;
         break;
       }
+      gettimeofday( &end, NULL );
+      int timeuse = 1000000 * ( end.tv_sec - start.tv_sec ) + end.tv_usec - start.tv_usec;
+      RTO=0.875*RTO+0.125*timeuse;//RTT估计
     }
     // Fallthrough.
     case NO_WAIT:
