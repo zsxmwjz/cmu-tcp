@@ -530,7 +530,7 @@ void window_send(cmu_socket_t *sock, uint8_t *data, int buf_len) {
           sended[(current_num+1)%WINDOW_SIZE]=0;
           free(msg[(current_num+1)%WINDOW_SIZE]);
           //printf("acked:%d\n",(current_num+1));
-          gettimeofday( &end, NULL );
+          gettimeofday( &end_time, NULL );
           int timeuse = 1000 * ( end_time.tv_sec - start_time[(current_num+1)%WINDOW_SIZE].tv_sec ) + (end_time.tv_usec - start_time[(current_num+1)%WINDOW_SIZE].tv_usec)/1000;
           EstimatedRTT=0.875*EstimatedRTT+0.125*timeuse;//RTT估计
           DevRTT=0.75*DevRTT-0.25*MIN(EstimatedRTT-timeuse,timeuse-EstimatedRTT);
