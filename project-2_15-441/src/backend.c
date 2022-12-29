@@ -313,7 +313,7 @@ uint32_t check_for_data(cmu_socket_t *sock, cmu_read_mode_t flags) {
         break;
       }
       gettimeofday( &end, NULL );
-      int timeuse = 1000 * ( end.tv_sec - start.tv_sec );
+      int timeuse = 1000 * ( end.tv_sec - start.tv_sec ) + (end.tv_usec - start.tv_usec)/1000;
       RTO=0.875*RTO+0.125*timeuse;//RTT估计
     }
     // Fallthrough.
