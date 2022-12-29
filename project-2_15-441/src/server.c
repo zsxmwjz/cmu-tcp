@@ -69,6 +69,37 @@ void test_sendArray(cmu_socket_t *sock) {
   printf("test_sendArray PASS\n");
 }
 
+void test_send_bigFile(cmu_socket_t *sock) {
+  int sum = 0;
+  FILE* fp = fopen("/tmp/bigFile.txt", "wb");
+  while(sum < 10 * MAX_NETWORK_BUFFER) {
+    sleep(1);
+    uint8_t arr[MAX_NETWORK_BUFFER] = {0};
+    int n = cmu_read(sock, arr, MAX_NETWORK_BUFFER * sizeof(uint8_t), NO_WAIT);
+    sum += n;
+    if(n > 0) {
+      printf("length: %d\n", n);
+      fwrite(arr, 1, n, fp);
+    }
+  }
+  int read = 1;
+  uint8_t receive[MAX_NETWORK_BUFFER] = {0};
+  while (read > 0) {
+    read = fread(receive, 1, MAX_NETWORK_BUFFER, fp);
+    int index;
+    for(index = 0; index < read; index++) {
+      if(receive[index] != (index & 0xff)) break;
+    }
+    if(index < read) {
+      printf("wrong at %d, expected %d, got %d\n",index,index&0xff,receive[index]);
+      fclose(fp);
+      return;
+    }
+  }
+  printf("test_send_bigFile PASS\n");
+  fclose(fp);
+}
+
 int main() {
   int portno;
   char *serverip;
@@ -91,7 +122,8 @@ int main() {
   }
 
   // functionality(&socket);
-  test_sendArray(&socket);
+  // test_sendArray(&socket);
+  test_send_bigFile(&socket);
 
   if (cmu_close(&socket) < 0) {
     exit(EXIT_FAILURE);

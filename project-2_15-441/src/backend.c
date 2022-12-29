@@ -308,7 +308,6 @@ uint32_t check_for_data(cmu_socket_t *sock, cmu_read_mode_t flags) {
       // Timeout after 3 seconds.
       int i=poll(&ack_fd, 1, RTO);
       if (i <= 0) {
-        if(i==0)RTO=2*RTO;
         break;
       }
     }
@@ -538,6 +537,7 @@ void window_send(cmu_socket_t *sock, uint8_t *data, int buf_len) {
           break;
         }
         else{
+          RTO *= 2;
           if(ack_wrong<=WINDOW_SIZE-1){
             ack_wrong++;
             continue;
