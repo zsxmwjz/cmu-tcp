@@ -442,7 +442,7 @@ void wavehand(cmu_socket_t *sock) {
     }
     state = TIME_WAIT;
     do {
-      RTO = 3000; // 30s内没收到重发的FIN报文，认为对方已收到FINACK
+      RTO = 30000; // 30s内没收到重发的FIN报文，认为对方已收到FINACK
     } while(check_for_data(sock,TIMEOUT));
   }
   state = CLOSED;
