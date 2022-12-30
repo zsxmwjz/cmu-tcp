@@ -19,10 +19,6 @@ from common import PCAP, CMUTCP, SYN_MASK, ACK_MASK, IP_ADDRS,FIN_MASK
 def test_pcap_packets_max_size():
     """Basic test: Check packets are smaller than max size"""
     print("Running test_pcap_packets_max_size()")
-    print(
-        "Please note that it's now testing on a sample test.pcap file. "
-        "You should generate your own pcap file and run this test."
-    )
     packets = rdpcap(PCAP)
     if len(packets) <= 10:
         print("Test Failed")
@@ -41,10 +37,6 @@ def test_pcap_acks():
     Ignore handshake packets.
     """
     print("Running test_pcap_acks()")
-    print(
-        "Please note that it's now testing on a sample test.pcap file. "
-        "You should generate your own pcap file and run this test."
-    )
     packets = rdpcap(PCAP)
     if len(packets) <= 10:
         print("Test Failed")
