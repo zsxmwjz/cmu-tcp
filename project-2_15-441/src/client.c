@@ -58,6 +58,17 @@ void test_sendArray(cmu_socket_t *sock) {
   }
 }
 
+void test_totalTime(cmu_socket_t * sock) {
+  uint8_t arr[MAX_NETWORK_BUFFER];
+  for(int i = 0; i < MAX_NETWORK_BUFFER; i++) arr[i] = i & 0xff;
+  int size = 32768;
+  while(size > 0) {
+    int length = (size < MAX_NETWORK_BUFFER) ? size : MAX_NETWORK_BUFFER;
+    cmu_write(sock,arr,length);
+    size -= length;
+  }
+}
+
 int main() {
   int portno;
   char *serverip;
@@ -81,6 +92,7 @@ int main() {
 
   // functionality(&socket);
   test_sendArray(&socket);
+  // test_totalTime(&socket);
 
   if (cmu_close(&socket) < 0) {
     exit(EXIT_FAILURE);

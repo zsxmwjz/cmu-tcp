@@ -577,6 +577,8 @@ void *begin_backend(void *in) {
   cmu_socket_t *sock = (cmu_socket_t *)in;
   int death, buf_len, send_signal;
   uint8_t *data;
+  struct timeval start, end;
+  gettimeofday(&start,NULL);
 
   handshake(sock);
 
@@ -602,7 +604,7 @@ void *begin_backend(void *in) {
       sock->sending_buf = NULL;
       pthread_mutex_unlock(&(sock->send_lock));
       pthread_cond_signal(&(sock->wait_cond_write));
-      //single_send(sock, data, buf_len);
+      // single_send(sock, data, buf_len);
       window_send(sock, data, buf_len);
       free(data);
     } else {
@@ -624,6 +626,9 @@ void *begin_backend(void *in) {
   }
 
   wavehand(sock);
+
+  gettimeofday(&end,NULL);
+  printf("time: %ld ms\n",1000*(end.tv_sec-start.tv_sec) + (end.tv_usec-start.tv_usec)/1000);
 
   pthread_exit(NULL);
   return NULL;

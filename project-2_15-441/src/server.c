@@ -72,7 +72,8 @@ void test_sendArray(cmu_socket_t *sock) {
 void test_send_bigFile(cmu_socket_t *sock) {
   int sum = 0;
   FILE* fp = fopen("/tmp/bigFile.txt", "wb");
-  while(sum < 10 * MAX_NETWORK_BUFFER) {
+  int total = 10 * MAX_NETWORK_BUFFER;
+  while(sum < total) {
     sleep(1);
     uint8_t arr[MAX_NETWORK_BUFFER] = {0};
     int n = cmu_read(sock, arr, MAX_NETWORK_BUFFER * sizeof(uint8_t), NO_WAIT);
