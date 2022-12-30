@@ -89,7 +89,7 @@ def test_basic_ack_packets():
                         plen=25 + len(payload),
                         seq_num=1001,
                         ack_num=syn_ack_pkt[CMUTCP].seq_num + 1,
-                        flags=ACK_MASK,
+                        flags=0,
                     )
                     / Raw(load=payload)
                 )
