@@ -173,7 +173,6 @@ void handle_message(cmu_socket_t *sock, uint8_t *pkt) {
   cmu_tcp_header_t *hdr = (cmu_tcp_header_t *)pkt;
   uint8_t flags = get_flags(hdr);
 
-  // 捎带：TCP中，一个报文在附带有效载荷（传输数据）的同时作为ACK。即使是单纯的ACK，也要设置seq。
   switch (flags) {
     case SYN_FLAG_MASK: {
       if(state == LISTEN && get_payload_len(pkt) == 0) {
@@ -305,7 +304,7 @@ uint32_t check_for_data(cmu_socket_t *sock, cmu_read_mode_t flags) {
       struct pollfd ack_fd;
       ack_fd.fd = sock->socket;
       ack_fd.events = POLLIN;
-      // Timeout after 3 seconds.
+      // Timeout after RTO ms.
       int i=poll(&ack_fd, 1, RTO);
       if (i <= 0) {
         break;
