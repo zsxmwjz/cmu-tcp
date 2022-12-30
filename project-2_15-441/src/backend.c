@@ -537,11 +537,11 @@ void window_send(cmu_socket_t *sock, uint8_t *data, int buf_len) {
           break;
         }
         else{
-          RTO *= 2;
           if(ack_wrong<=WINDOW_SIZE-1){
             ack_wrong++;
             continue;
           }
+          RTO *= 2;
           for(int i=0;i<WINDOW_SIZE;i++){
             sended[i]=0;
           }
@@ -554,9 +554,16 @@ void window_send(cmu_socket_t *sock, uint8_t *data, int buf_len) {
       if(buf_len==0){
         end=1;
         for(int i=0;i<WINDOW_SIZE;i++){
-          if(created[i]==1){
-            end=0;
-            
+          if(created[(current_num+i)%WINDOW_SIZE]==1){
+            while (1) {
+              check_for_data(sock, TIMEOUT);
+              if (has_been_acked(sock, seq[(current_num+i)%WINDOW_SIZE])) {
+                free(msg[(current_num+i)%WINDOW_SIZE]);
+                break;
+              }
+              sendto(sockfd, msg[(current_num+i)%WINDOW_SIZE], plen, 0, (struct sockaddr *)&(sock->conn),
+                    conn_len);
+            }
           }
         }
         //printf("end:%d,addr:%d\n",end,current_num);
