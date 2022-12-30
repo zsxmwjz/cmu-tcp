@@ -12,7 +12,7 @@ from pathlib import Path
 from scapy.all import rdpcap
 from fabric import Connection
 
-from common import PCAP, CMUTCP, ACK_MASK, IP_ADDRS
+from common import PCAP, CMUTCP, SYN_MASK, ACK_MASK, IP_ADDRS
 
 
 def test_pcap_packets_max_size():
@@ -57,8 +57,10 @@ def test_pcap_acks():
             if pkt[CMUTCP].flags == 0:
                 payload_len = pkt[CMUTCP].plen - pkt[CMUTCP].hlen
                 expected_acks.append(pkt[CMUTCP].seq_num + payload_len)
-            elif pkt[CMUTCP].flags == ACK_MASK:
+            elif pkt[CMUTCP].flags == ACK_MASK: # 无法区分是对数据包的ACK还是对SYNACK的ACK
                 ack_nums.append(pkt[CMUTCP].ack_num)
+            elif pkt[CMUTCP].flags == SYN_MASK | ACK_MASK:
+                expected_acks.append(pkt[CMUTCP].seq_num + 1)
 
     # TODO: Probably not the best way to do this test!
     if set(expected_acks) == set(ack_nums):
